@@ -259,7 +259,9 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
     
     #create the ActivityContext object
     if context:
-        context = ActivityContext.objects.get_or_create(content_type = ContentType.objects.get_for_model(context),
+        ct = ContentType.objects.get_for_model(context)
+        m = ct.model
+        context = ActivityContext.objects.get_or_create(content_type = ct,
                                                         object_id=context.pk)[0]
     notice_type = NoticeType.objects.get(label=label)
 
@@ -267,7 +269,7 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
     
     notices_url = u"http://%s%s" % (
                     unicode(current_site),
-                    reverse("notification%snotices" % ("_context_" if context else '_')),
+                    reverse("notification%snotices" % ("_context_" if context else '_'), args=[m, context.pk] if context else []),
                     )
     
         
