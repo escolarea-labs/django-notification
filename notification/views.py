@@ -31,7 +31,7 @@ def context_notices(request, context, object_id):
         raise Http404    
     app, model = settings.NOTIFICATION_CONTEXTS[context].split('.')
     notices = Notice.objects.notices_for(request.user, on_site=True,
-                                         context = Context.objects.get(content_type__app_label=app,
+                                         context = ActivityContext.objects.get(content_type__app_label=app,
                                                                         content_type__model=model,
                                                                         object_id = object_id
                                                                              ))

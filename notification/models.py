@@ -124,7 +124,7 @@ class NoticeManager(models.Manager):
         """
         return self.notices_for(user, unseen=True, **kwargs).count()
 
-class Context(models.Model):
+class ActivityContext(models.Model):
     content_type = models.ForeignKey(ContentType)
     object_id = models.PositiveIntegerField()
     content_object = generic.GenericForeignKey('content_type', 'object_id')
@@ -138,7 +138,7 @@ class Notice(models.Model):
     unseen = models.BooleanField(_('unseen'), default=True)
     archived = models.BooleanField(_('archived'), default=False)
     on_site = models.BooleanField(_('on site'))
-    context = models.ForeignKey(Context, null=True)
+    context = models.ForeignKey(ActivityContext, null=True)
 
     objects = NoticeManager()
 
@@ -240,7 +240,7 @@ def get_formatted_messages(formats, label, context):
             'notification/%s' % format), context_instance=context)
     return format_templates
 
-def send_now(users, label, extra_context=None, on_site=True):
+def send_now(users, label, extra_context=None, on_site=True, context=None):
     """
     Creates a new notice.
 
@@ -260,11 +260,13 @@ def send_now(users, label, extra_context=None, on_site=True):
     notice_type = NoticeType.objects.get(label=label)
 
     current_site = Site.objects.get_current()
+    
     notices_url = u"http://%s%s" % (
-        unicode(current_site),
-        reverse("notification_notices"),
-    )
-
+                    unicode(current_site),
+                    reverse("notification%snotices" % ("_context_" if context else '_')),
+                    )
+    
+        
     current_language = get_language()
 
     formats = (
@@ -287,29 +289,29 @@ def send_now(users, label, extra_context=None, on_site=True):
             # activate the user's language
             activate(language)
 
-        # update context with user specific translations
-        context = Context({
+        # update template context with user specific translations
+        template_context = Context({
             "user": user,
             "notice": ugettext(notice_type.display),
             "notices_url": notices_url,
             "current_site": current_site,
         })
-        context.update(extra_context)
+        template_context.update(extra_context)
 
         # get prerendered format messages
-        messages = get_formatted_messages(formats, label, context)
+        messages = get_formatted_messages(formats, label, template_context)
 
         # Strip newlines from subject
         subject = ''.join(render_to_string('notification/email_subject.txt', {
             'message': messages['short.txt'],
-        }, context).splitlines())
+        }, template_context).splitlines())
 
         body = render_to_string('notification/email_body.txt', {
             'message': messages['full.txt'],
-        }, context)
+        }, template_context)
 
         notice = Notice.objects.create(user=user, message=messages['notice.html'],
-            notice_type=notice_type, on_site=on_site)
+            notice_type=notice_type, on_site=on_site, context = context)
         if should_send(user, notice_type, "1") and user.email: # Email
             recipients.append(user.email)
         send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients)
@@ -337,7 +339,7 @@ def send(*args, **kwargs):
         else:
             return send_now(*args, **kwargs)
         
-def queue(users, label, extra_context=None, on_site=True):
+def queue(users, label, extra_context=None, on_site=True, context = None):
     """
     Queue the notification in NoticeQueueBatch. This allows for large amounts
     of user notifications to be deferred to a seperate process running outside
@@ -351,7 +353,7 @@ def queue(users, label, extra_context=None, on_site=True):
         users = [user.pk for user in users]
     notices = []
     for user in users:
-        notices.append((user, label, extra_context, on_site))
+        notices.append((user, label, extra_context, on_site, context))
     NoticeQueueBatch(pickled_data=pickle.dumps(notices).encode("base64")).save()
 
 class ObservedItemManager(models.Manager):
