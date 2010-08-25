@@ -429,3 +429,21 @@ def is_observing(observed, observer, signal='post_save'):
 
 def handle_observations(sender, instance, *args, **kw):
     send_observation_notices_for(instance)
+
+
+#alternative for observations
+from django.db.models.signals import post_save
+
+for model_path, callback_path in settings.AUTO_NOTIFY:
+    #get model module
+    msplt = model_path.split('.')
+    model_module_name, model_class_name = '.'.join(msplt[:-1]), msplt[-1]
+    model_module = __import__(model_module_name, globals(), locals(), [model_class_name])
+    model_class = getattr(model_module, model_class_name)
+    
+    csplt = callback_path.split('.')
+    callback_module_name, callback_name = '.'.join(csplt[:-1]), csplt[-1]
+    callback_module = __import__(callback_module_name, globals(), locals(), [callback_name])
+    callback = getattr(callback_module, callback_name)
+    
+    post_save.connect(callback, sender=model_class)    
