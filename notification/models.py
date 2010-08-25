@@ -257,6 +257,9 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
     if extra_context is None:
         extra_context = {}
     
+    #create the ActivityContext object
+    if context:
+        context = ActivityContext.objects.get_or_create(content_object = context)[0]
     notice_type = NoticeType.objects.get(label=label)
 
     current_site = Site.objects.get_current()
