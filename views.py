@@ -33,7 +33,7 @@ def context_notices(request, context, object_id):
     try:
         context_object = ActivityContext.objects.get(content_type__app_label=app, content_type__model=model, object_id = object_id)
         notices = Notice.objects.notices_for(request.user, on_site=True,
-                                         context = context_object)        
+                                         context = context_object.content_object)        
     except ActivityContext.DoesNotExist:
         notices = []
         
