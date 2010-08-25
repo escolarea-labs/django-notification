@@ -114,7 +114,8 @@ class NoticeManager(models.Manager):
         if on_site is not None:
             qs = qs.filter(on_site=on_site)
         if context:
-            qs = qs.filter(context = context)
+            qs = qs.filter(context__content_type=ContentType.objects.get_for_model(context),
+                                                context__object_id=context.pk)
         return qs
 
     def unseen_count_for(self, user, **kwargs):
