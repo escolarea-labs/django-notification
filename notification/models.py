@@ -114,7 +114,8 @@ class NoticeManager(models.Manager):
         if on_site is not None:
             qs = qs.filter(on_site=on_site)
         if context:
-            qs = qs.filter(context = context)
+            qs = qs.filter(context__content_type=ContentType.objects.get_for_model(context),
+                                                context__object_id=context.pk)
         return qs
 
     def unseen_count_for(self, user, **kwargs):
@@ -259,14 +260,18 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
     
     #create the ActivityContext object
     if context:
-        context = ActivityContext.objects.get_or_create(content_object = context)[0]
+        ct = ContentType.objects.get_for_model(context)
+        m = ct.model
+        context = ActivityContext.objects.get_or_create(content_type = ct,
+                                                        object_id=context.pk)[0]
     notice_type = NoticeType.objects.get(label=label)
 
     current_site = Site.objects.get_current()
     
     notices_url = u"http://%s%s" % (
                     unicode(current_site),
-                    reverse("notification%snotices" % ("_context_" if context else '_')),
+                    reverse("notification%snotices" % ("_context_" if context else '_'),
+                             args=[m, context.content_object.pk] if context else []),
                     )
     
         

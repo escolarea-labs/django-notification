@@ -30,14 +30,18 @@ def context_notices(request, context, object_id):
     if context not in settings.NOTIFICATION_CONTEXTS.keys():
         raise Http404    
     app, model = settings.NOTIFICATION_CONTEXTS[context].split('.')
-    context = ActivityContext.objects.get(content_type__app_label=app, content_type__model=model, object_id = object_id)
-    notices = Notice.objects.notices_for(request.user, on_site=True,
-                                         context = context)
-    notice_types = NoticeType.objects.all()
+    try:
+        context_object = ActivityContext.objects.get(content_type__app_label=app, content_type__model=model, object_id = object_id)
+        notices = Notice.objects.notices_for(request.user, on_site=True,
+                                         context = context_object.content_object)        
+    except ActivityContext.DoesNotExist:
+        notices = []
+        
+    notice_types = NoticeType.objects.all()    
     return render_to_response("notification/context/%s.html" % context, {
         "notices": notices,
         "notice_types": notice_types, #to filter!  
-        "object": context.content_object
+        "object": context_object.content_object if hasattr(context, "content_object") else None
     }, context_instance=RequestContext(request))
     
 @login_required
