@@ -7,7 +7,7 @@ from django.contrib.syndication.views import feed
 
 from notification.models import *
 from notification.decorators import basic_auth_required, simple_basic_auth_callback
-from notification.feeds import NoticeUserFeed
+from notification.feeds import NoticeUserFeed, ContextNoticeFeed
 
 @basic_auth_required(realm='Notices Feed', callback_func=simple_basic_auth_callback)
 def feed_for_user(request):
@@ -16,8 +16,34 @@ def feed_for_user(request):
         "feed": NoticeUserFeed,
     })
 
+@basic_auth_required(realm='Context Notices Feed', callback_func=simple_basic_auth_callback)
+def context_feed_for_user(request, context, object_id):
+    url = "%s/%s/feed/%s" % (context, object_id, request.user.username)
+    return feed(request, url, {
+        "feed": ContextNoticeFeed,
+    })
+
+@login_required
+def context_notices(request, context, object_id):    
+    """Get notifications for a given context"""
+    from django.conf import settings
+    if context not in settings.NOTIFICATION_CONTEXTS.keys():
+        raise Http404    
+    app, model = settings.NOTIFICATION_CONTEXTS[context].split('.')
+    notices = Notice.objects.notices_for(request.user, on_site=True,
+                                         context = Context.objects.get(content_type__app_label=app,
+                                                                        content_type__model=model,
+                                                                        object_id = object_id
+                                                                             ))
+    notice_types = NoticeType.objects.all()
+    return render_to_response("notification/context/%s.html" % context, {
+        "notices": notices,
+        "notice_types": notice_types, #to filter!  
+    }, context_instance=RequestContext(request))
+    
 @login_required
 def notices(request):
+    """This appears to show all notices and also the settings..."""
     notice_types = NoticeType.objects.all()
     notices = Notice.objects.notices_for(request.user, on_site=True)
     settings_table = []
@@ -55,6 +81,7 @@ def single(request, id):
         }, context_instance=RequestContext(request))
     raise Http404
 
+#TODO: ajaxify all this stuff
 @login_required
 def archive(request, noticeid=None, next_page=None):
     if noticeid:

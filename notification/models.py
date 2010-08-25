@@ -93,7 +93,7 @@ def should_send(user, notice_type, medium):
 
 class NoticeManager(models.Manager):
 
-    def notices_for(self, user, archived=False, unseen=None, on_site=None):
+    def notices_for(self, user, archived=False, unseen=None, on_site=None, context = None):
         """
         returns Notice objects for the given user.
 
@@ -103,6 +103,7 @@ class NoticeManager(models.Manager):
         If unseen=None, it includes all notices.
         If unseen=True, return only unseen notices.
         If unseen=False, return only seen notices.
+        If context != None, return only notices for the given context
         """
         if archived:
             qs = self.filter(user=user)
@@ -112,6 +113,8 @@ class NoticeManager(models.Manager):
             qs = qs.filter(unseen=unseen)
         if on_site is not None:
             qs = qs.filter(on_site=on_site)
+        if context:
+            qs = qs.filter(context = context)
         return qs
 
     def unseen_count_for(self, user, **kwargs):
@@ -121,6 +124,11 @@ class NoticeManager(models.Manager):
         """
         return self.notices_for(user, unseen=True, **kwargs).count()
 
+class Context(models.Model):
+    content_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField()
+    content_object = generic.GenericForeignKey('content_type', 'object_id')
+    
 class Notice(models.Model):
 
     user = models.ForeignKey(User, verbose_name=_('user'))
@@ -130,6 +138,7 @@ class Notice(models.Model):
     unseen = models.BooleanField(_('unseen'), default=True)
     archived = models.BooleanField(_('archived'), default=False)
     on_site = models.BooleanField(_('on site'))
+    context = models.ForeignKey(Context, null=True)
 
     objects = NoticeManager()
 
@@ -161,6 +170,7 @@ class Notice(models.Model):
     def get_absolute_url(self):
         return ("notification_notice", [str(self.pk)])
     get_absolute_url = models.permalink(get_absolute_url)
+
 
 class NoticeQueueBatch(models.Model):
     """

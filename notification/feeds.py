@@ -69,3 +69,36 @@ class NoticeUserFeed(BaseNoticeFeed):
 
     def items(self, user):
         return Notice.objects.notices_for(user).order_by("-added")[:ITEMS_PER_FEED]
+
+
+class ContextNoticeFeed(BaseNoticeFeed):
+    def get_object(self, params):
+        return get_object_or_404(User, username=params[0].lower())
+
+    def feed_id(self, user, context):
+        return "http://%s%s" % (
+                Site.objects.get_current().domain,
+                reverse('notification_context_feed_for_user'),
+            )
+
+    def feed_title(self, user, context):
+        return _('Notices Feed for %s' % context)
+
+    def feed_updated(self, user, context):
+        qs = Notice.objects.filter(user=user, context=context)
+        # We return an arbitrary date if there are no results, because there
+        # must be a feed_updated field as per the Atom specifications, however
+        # there is no real data to go by, and an arbitrary date can be static.
+        if qs.count() == 0:
+            return datetime(year=2008, month=7, day=1)
+        return qs.latest('added').added
+
+    def feed_links(self, user, context):
+        complete_url = "http://%s%s" % (
+                Site.objects.get_current().domain,
+                reverse('notification_context_notices'),
+            )
+        return ({'href': complete_url},)
+
+    def items(self, user, context):
+        return Notice.objects.notices_for(user, context=context).order_by("-added")[:ITEMS_PER_FEED]
