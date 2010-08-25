@@ -1,5 +1,8 @@
 Django Notification
 ===================
+Warning
+---------
+This branch is intended to be used as a [git-submodule](http://daniel.collectiveidea.com/blog/2008/4/9/git-submodules). If you intend to use it as a classical pluggable app, check out the `master` branch.
 
 WTF? (why the fork?)
 ---------------------
