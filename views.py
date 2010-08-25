@@ -41,7 +41,7 @@ def context_notices(request, context, object_id):
     return render_to_response("notification/context/%s.html" % context, {
         "notices": notices,
         "notice_types": notice_types, #to filter!  
-        "object": context.content_object
+        "object": context.content_object if hasattr(context, "content_object") else None
     }, context_instance=RequestContext(request))
     
 @login_required
