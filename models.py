@@ -270,7 +270,8 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
     
     notices_url = u"http://%s%s" % (
                     unicode(current_site),
-                    reverse("notification%snotices" % ("_context_" if context else '_'), args=[m, context.pk] if context else []),
+                    reverse("notification%snotices" % ("_context_" if context else '_'),
+                             args=[m, context.content_object.pk] if context else []),
                     )
     
         
