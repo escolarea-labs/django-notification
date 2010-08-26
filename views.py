@@ -8,6 +8,13 @@ from django.contrib.syndication.views import feed
 from notification.models import *
 from notification.decorators import basic_auth_required, simple_basic_auth_callback
 from notification.feeds import NoticeUserFeed, ContextNoticeFeed
+try:
+    import json
+except ImportError:
+    import django.utils.simplejson as json
+    
+from django.conf import settings
+from django.http import HttpResponse
 
 @basic_auth_required(realm='Notices Feed', callback_func=simple_basic_auth_callback)
 def feed_for_user(request):
@@ -15,6 +22,12 @@ def feed_for_user(request):
     return feed(request, url, {
         "feed": NoticeUserFeed,
     })
+    
+@basic_auth_required(realm='Notices Feed', callback_func=simple_basic_auth_callback)
+def json_feed_for_user(request):
+    return HttpResponse(json.dumps({'notifications': [unicode(e) for e in Notice.objects.notices_for(request.user, on_site=True)]},
+                                    ensure_ascii=False),
+                        mimetype="application/json")
 
 @basic_auth_required(realm='Context Notices Feed', callback_func=simple_basic_auth_callback)
 def context_feed_for_user(request, context, object_id):
@@ -23,10 +36,24 @@ def context_feed_for_user(request, context, object_id):
         "feed": ContextNoticeFeed,
     })
 
+@basic_auth_required(realm='Context Notices Feed', callback_func=simple_basic_auth_callback)
+def context_json_feed_for_user(request, context, object_id):
+    if context not in settings.NOTIFICATION_CONTEXTS.keys():
+        return HttpResponse(json.dumps({'notifications': []}), mimetype="application/json")
+        
+    app, model = settings.NOTIFICATION_CONTEXTS[context].split('.')    
+    try:
+        context_object = ActivityContext.objects.get(content_type__app_label=app, content_type__model=model, object_id = object_id)
+        notices = Notice.objects.notices_for(request.user, on_site=True,
+                                         context = context_object.content_object)        
+    except ActivityContext.DoesNotExist:
+        notices = []
+    
+    return HttpResponse(json.dumps({'notifications': [unicode(e) for e in notices]}, ensure_ascii=False), mimetype="application/json")
+    
 @login_required
 def context_notices(request, context, object_id):    
-    """Get notifications for a given context"""
-    from django.conf import settings
+    """Get notifications for a given context"""    
     if context not in settings.NOTIFICATION_CONTEXTS.keys():
         raise Http404    
     app, model = settings.NOTIFICATION_CONTEXTS[context].split('.')
