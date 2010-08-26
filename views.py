@@ -30,6 +30,7 @@ def context_notices(request, context, object_id):
     if context not in settings.NOTIFICATION_CONTEXTS.keys():
         raise Http404    
     app, model = settings.NOTIFICATION_CONTEXTS[context].split('.')
+    context_object = None
     try:
         context_object = ActivityContext.objects.get(content_type__app_label=app, content_type__model=model, object_id = object_id)
         notices = Notice.objects.notices_for(request.user, on_site=True,
