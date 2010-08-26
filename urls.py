@@ -1,7 +1,7 @@
 from django.conf.urls.defaults import *
 
 from notification.views import notices, mark_all_seen, feed_for_user, json_feed_for_user, single, context_notices, context_feed_for_user, context_json_feed_for_user
-
+#TODO: syndication for contexts http://michaeltrier.com/2007/8/5/digging-into-django-syndication-framework
 urlpatterns = patterns('',
     url(r'^$', notices, name="notification_notices"),
     url(r'^(\d+)/$', single, name="notification_notice"),
