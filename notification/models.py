@@ -31,6 +31,7 @@ else:
     from django.core.mail import send_mail
 
 QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
+LAZY_RENDERING = getattr(settings, "LAZY_NOTIFICATION_RENDERING", False) #whether to store contexts or full rendered templates
 
 class LanguageStoreNotAvailable(Exception):
     pass
@@ -144,7 +145,17 @@ class Notice(models.Model):
     objects = NoticeManager()
 
     def __unicode__(self):
-        return self.message
+        return self.as_html()
+    
+    def as_html(self):
+        """Try to render this notice as an html string"""
+        #don't believe in settings...
+        try:
+            template_context = pickle.loads(self.message.decode("base64"))
+            return get_formatted_messages(('notice.html',), self.notice_type.label, template_context)['notice.html']
+        except:
+            return self.message
+        
 
     def archive(self):
         self.archived = True
@@ -279,10 +290,11 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
 
     formats = (
         'short.txt',
-        'full.txt',
-        'notice.html',
+        'full.txt',        
         'full.html',
     ) # TODO make formats configurable
+    if not LAZY_RENDERING:
+        formats += ('notice.html',) 
 
     for user in users:
         recipients = []
@@ -317,9 +329,13 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
         body = render_to_string('notification/email_body.txt', {
             'message': messages['full.txt'],
         }, template_context)
-
-        notice = Notice.objects.create(user=user, message=messages['notice.html'],
+        if LAZY_RENDERING:
+            notice = Notice.objects.create(user=user, message=pickle.dumps(template_context).encode("base64"),
             notice_type=notice_type, on_site=on_site, context = context)
+        else:
+            notice = Notice.objects.create(user=user, message=messages['notice.html'],
+            notice_type=notice_type, on_site=on_site, context = context)
+        
         if should_send(user, notice_type, "1") and user.email: # Email
             recipients.append(user.email)
         send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients)
