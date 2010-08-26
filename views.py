@@ -75,6 +75,7 @@ def context_notices(request, context, object_id):
 @login_required
 def notices(request):
     """This appears to show all notices and also the settings..."""
+    
     notice_types = NoticeType.objects.all()
     notices = Notice.objects.notices_for(request.user, on_site=True)
     settings_table = []
