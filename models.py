@@ -68,7 +68,7 @@ NOTICE_MEDIA = (
 # how spam-sensitive is the medium
 NOTICE_MEDIA_DEFAULTS = {
     "1": 2, # email
-    "2": 1,# facebook
+    "2": 2,# facebook
 }
 
 class NoticeSetting(models.Model):
