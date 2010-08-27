@@ -341,7 +341,15 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
             'message': messages['full.txt'],
         }, template_context)
         if LAZY_RENDERING and on_site:
-            notice = Notice.objects.create(user=user, message=pickle.dumps(template_context).encode("base64"),
+            #re-create the context to avoid including the other rendered templates
+            ctx =Context({
+            "user": user,
+            "notice": ugettext(notice_type.display),
+            "notices_url": notices_url,
+            "current_site": current_site,
+            })
+            ctx.update(extra_context)
+            notice = Notice.objects.create(user=user, message=pickle.dumps(ctx).encode("base64"),
             notice_type=notice_type, on_site=on_site, context = context)
         else:
             notice = Notice.objects.create(user=user, message=messages['notice.html'],
