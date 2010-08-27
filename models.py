@@ -385,14 +385,6 @@ def send_to_facebook(user, context={}):
         #build the full url        
         context['link'] = u"http://%s%s" % (
                     unicode(Site.objects.get_current()), context.get('link', ''))
-    
-    #update the name:
-    if 'name' in context:
-        context['name'] = "%s %s" % (user.first_name, context['name'])
-        
-    #and the description
-    if 'description' in context:
-        context['description'] = "%s %s" % (user.first_name, context['description'])    
         
     access_token = getattr(user.get_profile(), FACEBOOK_ATTR, None)
     if context and access_token:
