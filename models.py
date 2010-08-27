@@ -339,7 +339,7 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
             notice_type=notice_type, on_site=on_site, context = context)
         
         if should_send(user, notice_type, "1") and user.email: # Email
-            recipients.append(user.email)
+            recipients.append(user.email)#add facebook
         send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients)
 
     # reset environment to original language

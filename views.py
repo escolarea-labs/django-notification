@@ -131,6 +131,15 @@ def notice_settings(request):
             settings_row.append((form_label, setting.send))
         settings_table.append({"notice_type": notice_type, "cells": settings_row})
     
+    #redirect to notifications after setting this:
+    if request.method == "POST":
+        #if the messages app is installed, send a message
+        if 'django.contrib.messages' in settings.INSTALLED_APPS:
+            from django.contrib import messages
+            messages.info(request, _("Your settings have been updated"))
+            
+        return HttpResponseRedirect(reverse("notification_notice_settings"))
+    
     notice_settings = {
         "column_headers": [medium_display for medium_id, medium_display in NOTICE_MEDIA],
         "rows": settings_table,
