@@ -68,7 +68,7 @@ NOTICE_MEDIA = (
 # how spam-sensitive is the medium
 NOTICE_MEDIA_DEFAULTS = {
     "1": 2, # email
-    "2": 2,# facebook
+    "2": 1,# facebook
 }
 
 class NoticeSetting(models.Model):
@@ -337,7 +337,7 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
         body = render_to_string('notification/email_body.txt', {
             'message': messages['full.txt'],
         }, template_context)
-        if LAZY_RENDERING:
+        if LAZY_RENDERING and on_site:
             notice = Notice.objects.create(user=user, message=pickle.dumps(template_context).encode("base64"),
             notice_type=notice_type, on_site=on_site, context = context)
         else:
@@ -357,20 +357,34 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
     # reset environment to original language
     activate(current_language)
 
-def send_to_facebook(user, facebook_context={}):
-    """"""
+def send_to_facebook(user, context={}):
+    """Send a wall post to a user's facebook profile"""
+    
+    #only leave the facebook attrs:
+    facebook_attrs = ['name', 'link', 'caption', 'description', 'picture']
+    for e in context.keys():
+        if e not in facebook_attrs:
+            del context[e]  
+    
     #description="", picture="", link="http://escolarea.com", message="", caption="" 
-    if "http://" not in facebook_context.get('link', ''):
+    if "http://" not in context.get('link', ''):
         #build the full url        
-        facebook_context['link'] = u"http://%s%s" % (
-                    unicode(Site.objects.get_current()), facebook_context.get('link', ''))
+        context['link'] = u"http://%s%s" % (
+                    unicode(Site.objects.get_current()), context.get('link', ''))
+    
+    #update the name:
+    if 'name' in context:
+        context['name'] = "%s %s" % (user.first_name, context['name'])
         
+    #and the description
+    if 'description' in context:
+        context['description'] = "%s %s" % (user.first_name, context['description'])    
         
     access_token = getattr(getattr(user, PROFILE_GETTER)(), FACEBOOK_ATTR, None)
     if access_token:
         graph_api = GraphAPI(access_token)
-        graph_api.put_wall_post(message=facebook_context.get('message', ''),
-                                attachment=facebook_context)
+        graph_api.put_wall_post(message=context.get('message', ''),
+                                attachment=context)
 
 
 def send(*args, **kwargs):
