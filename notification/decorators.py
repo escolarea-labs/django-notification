@@ -2,6 +2,7 @@ from django.utils.translation import ugettext as _
 from django.http import HttpResponse
 from django.contrib.auth import authenticate, login
 from django.conf import settings
+import threading
 
 def simple_basic_auth_callback(request, user, *args, **kwargs):
     """
@@ -60,3 +61,12 @@ def basic_auth_required(realm=None, test_func=None, callback_func=None):
             return response
         return basic_auth
     return decorator
+
+def daemonize(f):
+    def wrapper(*args, **kwargs):
+        #if settings.DEBUG: print "running %s as daemon" % f.func_name
+        tgt = f             
+        t= threading.Thread(target=tgt, args=args, kwargs=kwargs)
+        t.setDaemon(True)        
+        t.start()
+    return wrapper

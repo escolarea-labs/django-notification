@@ -23,15 +23,24 @@ from django.contrib.contenttypes import generic
 
 from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ugettext, get_language, activate
-
+try:
+    from facebook import GraphAPI
+    from decorators import daemonize
+except ImportError:
+    from notification.facebook import GraphAPI
+    from notification.decorators import daemonize
 # favour django-mailer but fall back to django.core.mail
 if 'mailer' in settings.INSTALLED_APPS:
     from mailer import send_mail
 else:
     from django.core.mail import send_mail
 
+
 QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
 LAZY_RENDERING = getattr(settings, "LAZY_NOTIFICATION_RENDERING", False) #whether to store contexts or full rendered templates
+FACEBOOK_ATTR = getattr(settings, "NOTIFICATION_FACEBOOK_ATTR", 'facebook_access_token')
+PROFILES_ACTIVATED = getattr(settings, "AUTH_PROFILE_MODULE", False)
+
 
 class LanguageStoreNotAvailable(Exception):
     pass
@@ -56,11 +65,13 @@ class NoticeType(models.Model):
 # if this gets updated, the create() method below needs to be as well...
 NOTICE_MEDIA = (
     ("1", _("Email")),
+    ("2", _("Facebook")),
 )
 
 # how spam-sensitive is the medium
 NOTICE_MEDIA_DEFAULTS = {
-    "1": 2 # email
+    "1": 2, # email
+    "2": 3,# facebook
 }
 
 class NoticeSetting(models.Model):
@@ -293,7 +304,7 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
         'full.txt',        
         'full.html',
     ) # TODO make formats configurable
-    if not LAZY_RENDERING:
+    if not LAZY_RENDERING and on_site:
         formats += ('notice.html',) 
 
     for user in users:
@@ -329,7 +340,7 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
         body = render_to_string('notification/email_body.txt', {
             'message': messages['full.txt'],
         }, template_context)
-        if LAZY_RENDERING:
+        if LAZY_RENDERING and on_site:
             notice = Notice.objects.create(user=user, message=pickle.dumps(template_context).encode("base64"),
             notice_type=notice_type, on_site=on_site, context = context)
         else:
@@ -338,10 +349,49 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
         
         if should_send(user, notice_type, "1") and user.email: # Email
             recipients.append(user.email)
+        
+        #facebook
+        if should_send(user, notice_type, "2") and PROFILES_ACTIVATED:
+            send_to_facebook(user, extra_context)
+            
         send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients)
 
     # reset environment to original language
     activate(current_language)
+
+@daemonize
+def send_to_facebook(user, context={}):
+    """Send a wall post to a user's facebook profile
+    
+      It's run as a daemon, to avoid delaying too much the response time of the original response
+    """
+    
+    #only leave the facebook attrs:
+    facebook_attrs = ['name', 'link', 'caption', 'description', 'picture']
+    for e in context.keys():
+        if e not in facebook_attrs:
+            del context[e]  
+    
+    #description="", picture="", link="http://escolarea.com", message="", caption="" 
+    if "http://" not in context.get('link', ''):
+        #build the full url        
+        context['link'] = u"http://%s%s" % (
+                    unicode(Site.objects.get_current()), context.get('link', ''))
+    
+    #update the name:
+    if 'name' in context:
+        context['name'] = "%s %s" % (user.first_name, context['name'])
+        
+    #and the description
+    if 'description' in context:
+        context['description'] = "%s %s" % (user.first_name, context['description'])    
+        
+    access_token = getattr(user.get_profile(), FACEBOOK_ATTR, None)
+    if context and access_token:
+        graph_api = GraphAPI(access_token)
+        graph_api.put_wall_post(message=context.get('message', ''),
+                                attachment=context)
+
 
 def send(*args, **kwargs):
     """
