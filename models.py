@@ -36,7 +36,7 @@ else:
 QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
 LAZY_RENDERING = getattr(settings, "LAZY_NOTIFICATION_RENDERING", False) #whether to store contexts or full rendered templates
 FACEBOOK_ATTR = getattr(settings, "NOTIFICATION_FACEBOOK_ATTR", 'facebook_access_token')
-PROFILE_GETTER = getattr(settings, "NOTIFICATION_PROFILE", 'get_profile')
+PROFILES_ACTIVATED = getattr(settings, "AUTH_PROFILE_MODULE", False)
 
 
 class LanguageStoreNotAvailable(Exception):
@@ -348,8 +348,7 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
             recipients.append(user.email)
         
         #facebook
-        if should_send(user, notice_type, "2") and hasattr(user, PROFILE_GETTER) \
-         and callable(user, PROFILE_GETTER):
+        if should_send(user, notice_type, "2") and PROFILES_ACTIVATED:
             send_to_facebook(user, extra_context)
             
         send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients)
@@ -380,7 +379,7 @@ def send_to_facebook(user, context={}):
     if 'description' in context:
         context['description'] = "%s %s" % (user.first_name, context['description'])    
         
-    access_token = getattr(getattr(user, PROFILE_GETTER)(), FACEBOOK_ATTR, None)
+    access_token = getattr(user.get_profile(), FACEBOOK_ATTR, None)
     if access_token:
         graph_api = GraphAPI(access_token)
         graph_api.put_wall_post(message=context.get('message', ''),
