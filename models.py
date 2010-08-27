@@ -68,7 +68,7 @@ NOTICE_MEDIA = (
 # how spam-sensitive is the medium
 NOTICE_MEDIA_DEFAULTS = {
     "1": 2, # email
-    "2": 2,# facebook
+    "2": 3,# facebook
 }
 
 class NoticeSetting(models.Model):
@@ -380,7 +380,7 @@ def send_to_facebook(user, context={}):
         context['description'] = "%s %s" % (user.first_name, context['description'])    
         
     access_token = getattr(user.get_profile(), FACEBOOK_ATTR, None)
-    if access_token:
+    if context and access_token:
         graph_api = GraphAPI(access_token)
         graph_api.put_wall_post(message=context.get('message', ''),
                                 attachment=context)
