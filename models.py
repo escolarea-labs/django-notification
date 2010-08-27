@@ -23,7 +23,10 @@ from django.contrib.contenttypes import generic
 
 from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ugettext, get_language, activate
-
+try:
+    from facebook import GraphAPI
+except ImportError:
+    from notification.facebook import GraphAPI
 # favour django-mailer but fall back to django.core.mail
 if 'mailer' in settings.INSTALLED_APPS:
     from mailer import send_mail
@@ -32,6 +35,9 @@ else:
 
 QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
 LAZY_RENDERING = getattr(settings, "LAZY_NOTIFICATION_RENDERING", False) #whether to store contexts or full rendered templates
+FACEBOOK_ATTR = getattr(settings, "NOTIFICATION_FACEBOOK_ATTR", 'facebook_access_token')
+PROFILE_GETTER = getattr(settings, "NOTIFICATION_PROFILE", 'get_profile')
+
 
 class LanguageStoreNotAvailable(Exception):
     pass
@@ -339,11 +345,33 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
             notice_type=notice_type, on_site=on_site, context = context)
         
         if should_send(user, notice_type, "1") and user.email: # Email
-            recipients.append(user.email)#add facebook
+            recipients.append(user.email)
+        
+        #facebook
+        if should_send(user, notice_type, "2") and hasattr(user, PROFILE_GETTER) \
+         and callable(user, PROFILE_GETTER):
+            send_to_facebook(user, extra_context)
+            
         send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients)
 
     # reset environment to original language
     activate(current_language)
+
+def send_to_facebook(user, facebook_context={}):
+    """"""
+    #description="", picture="", link="http://escolarea.com", message="", caption="" 
+    if "http://" not in facebook_context.get('link', ''):
+        #build the full url        
+        facebook_context['link'] = u"http://%s%s" % (
+                    unicode(Site.objects.get_current()), facebook_context.get('link', ''))
+        
+        
+    access_token = getattr(getattr(user, PROFILE_GETTER)(), FACEBOOK_ATTR, None)
+    if access_token:
+        graph_api = GraphAPI(access_token)
+        graph_api.put_wall_post(message=facebook_context.get('message', ''),
+                                attachment=facebook_context)
+
 
 def send(*args, **kwargs):
     """
