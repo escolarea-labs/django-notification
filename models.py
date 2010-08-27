@@ -25,13 +25,16 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ugettext, get_language, activate
 try:
     from facebook import GraphAPI
+    from decorators import daemonize
 except ImportError:
     from notification.facebook import GraphAPI
+    from notification.decorators import daemonize
 # favour django-mailer but fall back to django.core.mail
 if 'mailer' in settings.INSTALLED_APPS:
     from mailer import send_mail
 else:
     from django.core.mail import send_mail
+
 
 QUEUE_ALL = getattr(settings, "NOTIFICATION_QUEUE_ALL", False)
 LAZY_RENDERING = getattr(settings, "LAZY_NOTIFICATION_RENDERING", False) #whether to store contexts or full rendered templates
@@ -301,7 +304,7 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
         'full.txt',        
         'full.html',
     ) # TODO make formats configurable
-    if not LAZY_RENDERING:
+    if not LAZY_RENDERING and on_site:
         formats += ('notice.html',) 
 
     for user in users:
@@ -356,8 +359,12 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
     # reset environment to original language
     activate(current_language)
 
+@daemonize
 def send_to_facebook(user, context={}):
-    """Send a wall post to a user's facebook profile"""
+    """Send a wall post to a user's facebook profile
+    
+      It's run as a daemon, to avoid delaying too much the response time of the original response
+    """
     
     #only leave the facebook attrs:
     facebook_attrs = ['name', 'link', 'caption', 'description', 'picture']
