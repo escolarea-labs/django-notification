@@ -360,6 +360,14 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
         
         #facebook
         if should_send(user, notice_type, "2") and PROFILES_ACTIVATED:
+            if not 'name' in extra_context:
+                extra_context['name'] = current_site.domain
+            if not 'description' in extra_context:
+                extra_context['description']= subject
+            if not 'link' in extra_context:
+                extra_context['link'] = notices_url
+            if not 'picture' in extra_context and hasattr(settings, 'NOTIFICATION_SITE_PICTURE'):
+                extra_context['picture'] = settings.NOTIFICATION_SITE_PICTURE
             send_to_facebook(user, extra_context)
             
         send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, recipients)
