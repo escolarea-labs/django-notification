@@ -105,7 +105,7 @@ def should_send(user, notice_type, medium):
 
 class NoticeManager(models.Manager):
 
-    def notices_for(self, user, archived=False, unseen=None, on_site=None, context = None):
+    def notices_for(self, user, archived=False, unseen=None, on_site=None, context = None, label=""):
         """
         returns Notice objects for the given user.
 
@@ -128,6 +128,8 @@ class NoticeManager(models.Manager):
         if context:
             qs = qs.filter(context__content_type=ContentType.objects.get_for_model(context),
                                                 context__object_id=context.pk)
+        if label and NoticeType.objects.filter(label=label).exists():
+            qs = qs.filter(notice_type__label=label)
         return qs
 
     def unseen_count_for(self, user, **kwargs):
