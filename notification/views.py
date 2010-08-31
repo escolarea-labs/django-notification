@@ -15,6 +15,7 @@ except ImportError:
     
 from django.conf import settings
 from django.http import HttpResponse
+from django.core.paginator import Paginator, InvalidPage, EmptyPage
 
 @basic_auth_required(realm='Notices Feed', callback_func=simple_basic_auth_callback)
 def feed_for_user(request):
@@ -50,7 +51,18 @@ def context_json_feed_for_user(request, context, object_id):
         notices = []
     
     return HttpResponse(json.dumps({'notifications': [unicode(e) for e in notices]}, ensure_ascii=False), mimetype="application/json")
-    
+
+def _paginate_notices(request, qs):
+    paginator = Paginator(qs, getattr(settings, 'NOTIFICATIONS_PER_PAGE', 20))
+    try:
+        page = int(request.GET.get('page','1'))
+    except ValueError:
+        page = 1
+    try:
+        return paginator.page(page)
+    except (EmptyPage, InvalidPage):
+        return paginator.page(paginator.num_pages)
+            
 @login_required
 def context_notices(request, context, object_id):    
     """Get notifications for a given context"""    
@@ -60,11 +72,12 @@ def context_notices(request, context, object_id):
     context_object = None
     try:
         context_object = ActivityContext.objects.get(content_type__app_label=app, content_type__model=model, object_id = object_id)
-        notices = Notice.objects.notices_for(request.user, on_site=True,
-                                         context = context_object.content_object)        
+        raw_notices = Notice.objects.notices_for(request.user, on_site=True,
+                                         context = context_object.content_object)
+        notices = _paginate_notices(request, raw_notices)
     except ActivityContext.DoesNotExist:
         notices = []
-        
+    
     notice_types = NoticeType.objects.all()    
     return render_to_response("notification/context/%s.html" % context, {
         "notices": notices,
@@ -85,8 +98,8 @@ def notices(request):
             A list of :model:`notification.Notice` objects that are not archived
             and to be displayed on the site.
     """
-    notices = Notice.objects.notices_for(request.user, on_site=True)
-    
+    raw_notices = Notice.objects.notices_for(request.user, on_site=True)
+    notices = _paginate_notices(request, raw_notices)
     return render_to_response("notification/notices.html", {
         "notices": notices,
     }, context_instance=RequestContext(request))
