@@ -292,7 +292,7 @@ def send_now(users, label, extra_context=None, on_site=True, context=None):
     
     notices_url = u"http://%s%s" % (
                     unicode(current_site),
-                    reverse("notification_notice_settings")
+                    reverse("notification_notice_settings"))
     
         
     current_language = get_language()
