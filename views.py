@@ -102,6 +102,7 @@ def notices(request):
     notices = _paginate_notices(request, raw_notices)
     return render_to_response("notification/notices.html", {
         "notices": notices,
+        'notice_types': NoticeType.objects.all(),
     }, context_instance=RequestContext(request))
 
 @login_required
